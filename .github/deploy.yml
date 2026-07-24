@@ -1,0 +1,30 @@
+name: Deploy Hainan Trade KB
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 */6 * * *'
+
+permissions:
+  issues: write
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install flask
+      - run: nohup python app_v5.py &
+      - name: Cloudflare Tunnel
+        run: |
+          curl -sL https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64 -o cf
+          chmod +x cf
+          ./cf tunnel --url http://localhost:8080 2>&1 | tee cf.log &
+          sleep 15
+          URL=$(grep -oP 'https://[a-z0-9-]+\.trycloudflare\.com' cf.log | head -1)
+          echo "TUNNEL_URL=$URL" >> $GITHUB_ENV
+          echo "URL: $URL"
+          sleep 21300
